@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MCVideo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{--bg:#f4f5f0;--card:#fff;--tx:#1d2118;--sub:#667060;--ac:#4caf50;--ac2:#2e7d32;--bd:#d9dccf;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15180f;--card:#20241a;--tx:#eef1e8;--sub:#9aa392;--ac:#66bb6a;--ac2:#43a047;--bd:#343a2b}}
+:root[data-theme="dark"]{--bg:#15180f;--card:#20241a;--tx:#eef1e8;--sub:#9aa392;--ac:#66bb6a;--ac2:#43a047;--bd:#343a2b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;line-height:1.6}
+.w{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.5rem;margin:8px 0 4px}
+.s{color:var(--sub);font-size:.9rem;margin:0 0 18px}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:14px}
+.c h2{font-size:1rem;margin:0 0 10px}
+label{display:block;font-size:.85rem;color:var(--sub);margin:10px 0 4px}
+input,select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font-size:1rem}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:10px;background:var(--ac2);color:#fff;font-size:1rem;font-weight:700;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+video,canvas{max-width:100%;border-radius:8px;display:block}
+canvas{width:100%;image-rendering:pixelated}
+.bar{height:8px;background:var(--bd);border-radius:4px;overflow:hidden;margin-top:12px}
+.bar i{display:block;height:100%;width:0;background:var(--ac);transition:width .1s}
+#st{font-size:.85rem;color:var(--sub);margin-top:6px}
+ol{padding-left:20px;margin:6px 0}
+code{background:var(--bg);padding:1px 6px;border-radius:5px;font-size:.85em}
+.note{font-size:.8rem;color:var(--sub)}
+</style>
+</head>
+<body>
+<div class="w">
+<h1>MCVideo</h1>
+
+<div class="c">
+<h2>1. 動画を選ぶ(2分まで)</h2>
+<input type="file" id="f" accept="video/mp4,video/*">
+<video id="v" controls muted playsinline style="margin-top:10px;display:none"></video>
+</div>
+
+<div class="c">
+<h2>2. 設定</h2>
+<div class="g">
+<div><label>表示方式</label><select id="mode"><option value="hq">高画質(画面に映像を表示・リソースパック必要)</option><option value="block" selected>ブロックで再現(近くで見ても普通のブロック)</option></select></div>
+<div class="hq"><label>画面の横ブロック数</label><input type="number" id="hqb" value="40" min="1" max="1000"></div>
+<div class="hq"><label>映像の解像度(横px)</label><select id="hqw"><option>256</option><option>384</option><option>512</option></select></div>
+<div class="hq"><label>音声ファイル(.ogg・任意)</label><input type="file" id="aud" accept=".ogg,audio/ogg"></div>
+<div class="bk"><label>画面の横ブロック数(1〜512)</label><input type="number" id="cols" value="256" min="1" max="512"></div>
+<div><label>フレームレート (fps・30/60は1.21以降でゲーム全体の速度が上がります)</label><select id="fps"><option value="60">60</option><option value="30">30</option><option value="20">20</option><option value="10">10</option><option value="5" selected>5</option><option value="4">4</option><option value="2">2</option></select></div>
+<div><label>使う秒数(最大120)</label><input type="number" id="sec" value="10" min="1" max="120"></div>
+<div><label>対応バージョン</label><select id="pf"><option value="15|functions">1.20.1</option><option value="48|function" selected>1.21</option><option value="61|function">1.21.4</option></select></div>
+<div class="bk"><label>ディザ(色の階調を細かく見せる)</label><select id="dith"><option value="0">なし</option><option value="24" selected>弱</option><option value="48">強</option></select></div>
+<div class="bk"><label>ちらつき抑制(更新するブロックを減らす)</label><select id="stab"><option value="0">なし</option><option value="4" selected>弱</option><option value="8">強</option></select></div>
+<div class="bk"><label>コマンド総数の上限(大きいほど高画質・読み込みは重い)</label><select id="cap"><option value="150000">15万(軽い)</option><option value="300000" selected>30万</option><option value="600000">60万(重い)</option></select></div>
+<div class="bk"><label>色のモード</label><select id="pal"><option value="adaptive">拡張(映像に合わせた色・リソースパック必要)</option><option value="fixed" selected>標準(約110色・普通のブロックの見た目のまま)</option></select></div>
+<div class="bk"><label>拡張モードの色数</label><select id="kc"><option value="32">32色</option><option value="64">64色</option><option value="96" selected>96色</option></select></div>
+</div>
+<p class="note hq">高画質モードは、フレームごとの画像をリソースパックに入れ、1枚の大きな表示エンティティに順番に映します。色数も解像度も、ブロック再現より大幅に上です。1.21.4専用で、フレーム数が多い(目安600枚超)と、ゲーム起動時の読み込みが重くなります。音声は、mp4から作った .ogg を選ぶと一緒に再生されます。</p>
+<p class="note">コマンド総数が選んだ上限を超えると変換を止めます。上限を上げるほど高画質にできますが、ワールドを開くときの読み込みが重くなります。縦のブロック数は動画の縦横比から自動で決まります。ブロックは色が近い約100種類から自動で選ばれます。</p>
+<button id="go" disabled>変換する</button>
+<div class="bar"><i id="pr"></i></div>
+<div id="st"></div>
+</div>
+
+<div class="c" id="out" style="display:none">
+<h2>3. 結果(プレビュー)</h2>
+<canvas id="pv"></canvas>
+<button id="dl">データパックをダウンロード (.zip)</button>
+<button id="dl2" style="display:none">リソースパックをダウンロード (.zip)</button>
+</div>
+
+<div class="c">
+<h2>使い方</h2>
+<ol>
+<li>(高画質モード・拡張の色モードのとき)リソースパックを <code>resourcepacks</code> に入れて有効化</li>
+<li>データパックをワールドの <code>datapacks</code> フォルダに入れて <code>/reload</code></li>
+<li>画面を出したい場所に立ち、<code>/function mcvideo:setup</code> を実行(前方5ブロック先に最初のフレームが設置されます)</li>
+<li>「初期フレーム設置完了」と表示されたら <code>/function mcvideo:start</code> で再生開始(設置前は開始できません)</li>
+<li>止めるときは <code>/function mcvideo:stop</code>、画面を消すときは <code>/function mcvideo:clear</code></li>
+</ol>
+<p class="note">画面は北側から見ると正しい向きです。ビルド高度の上限(Y=319)があるので、縦が大きい画面は低い位置に立ってください。変更のあったブロックだけを毎フレーム置き換える方式のため、動きの激しい動画や大きい画面ではサーバーが重くなります。</p>
+</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const v=$('v'),go=$('go'),st=$('st'),pr=$('pr');
+const COL=['white','orange','magenta','light_blue','yellow','lime','pink','gray','light_gray','cyan','purple','blue','brown','green','red','black'];
+const CC=[[207,213,214],[224,97,0],[169,48,159],[35,137,198],[240,175,21],[94,168,24],[213,101,142],[54,57,61],[125,125,115],[21,119,136],[100,32,156],[45,47,143],[96,60,32],[73,91,36],[142,33,33],[8,10,15]];
+const WC=[[233,236,236],[240,118,19],[189,68,179],[58,175,217],[248,197,39],[112,185,25],[237,141,172],[62,68,71],[142,142,134],[21,137,145],[121,42,172],[53,57,157],[114,71,40],[84,109,27],[160,39,34],[20,21,25]];
+const TC=[[209,178,161],[161,83,37],[149,88,108],[113,108,137],[186,133,35],[103,117,53],[161,78,78],[57,41,35],[135,106,97],[86,91,91],[118,70,86],[74,59,91],[77,51,36],[76,83,42],[143,61,46],[37,22,16]];
+const PAL=[];
+COL.forEach((c,i)=>{PAL.push([c+'_concrete',...CC[i]]);PAL.push([c+'_wool',...WC[i]]);PAL.push([c+'_terracotta',...TC[i]])});
+[['terracotta',152,94,67],['stone',125,125,125],['dirt',134,96,67],['oak_planks',162,130,78],['spruce_planks',114,84,48],['birch_planks',192,175,121],['snow_block',249,254,254],['sand',219,207,163],['netherrack',97,38,38],['gold_block',246,208,61],['emerald_block',42,203,87],['diamond_block',98,237,228],['lapis_block',31,67,140],['iron_block',220,220,220],['coal_block',16,16,16],['deepslate',80,80,83],['cobblestone',127,127,127],['moss_block',89,109,45],['slime_block',111,192,91],['packed_ice',141,180,250]].forEach(p=>PAL.push(p));
+[['red_sandstone',181,97,31],['sandstone',216,203,155],['prismarine',99,171,158],['dark_prismarine',51,91,75],['purpur_block',169,125,169],['amethyst_block',133,97,191],['copper_block',192,107,79],['oxidized_copper',82,162,132],['crimson_planks',101,48,70],['warped_planks',43,104,99],['honeycomb_block',229,148,29],['bone_block',229,225,207],['clay',160,166,179],['mud_bricks',137,103,79],['bricks',150,97,83],['nether_bricks',44,22,26],['quartz_block',235,229,222],['end_stone',219,222,158],['calcite',223,224,220],['tuff',108,109,102],['blackstone',42,36,41],['obsidian',15,11,25],['dripstone_block',134,107,92],['mangrove_planks',117,54,48],['acacia_planks',168,90,50],['jungle_planks',160,115,81],['dark_oak_planks',66,43,20],['cherry_planks',226,178,172],['bamboo_planks',193,173,80],['smooth_stone',158,158,158],['andesite',136,136,136]].forEach(p=>PAL.push(p));
+const FIXED=PAL.slice();
+function lab(r,g,b){const f=x=>{x/=255;return x>0.04045?Math.pow((x+0.055)/1.055,2.4):x/12.92};const R=f(r),G=f(g),B=f(b);
+let X=(0.4124*R+0.3576*G+0.1805*B)/0.95047,Y=0.2126*R+0.7152*G+0.0722*B,Z=(0.0193*R+0.1192*G+0.9505*B)/1.08883;
+const t=x=>x>0.008856?Math.cbrt(x):7.787*x+16/116;X=t(X);Y=t(Y);Z=t(Z);return[116*Y-16,500*(X-Y),200*(Y-Z)]}
+const PL=PAL.map(p=>lab(p[1],p[2],p[3]));
+const cb=new Int16Array(262144).fill(-1),cL=new Float32Array(262144*3);
+function qk(r,g,b){
+  const key=(r>>2)<<12|(g>>2)<<6|(b>>2);
+  if(cb[key]<0){
+    const l=lab(((r>>2)<<2)+2,((g>>2)<<2)+2,((b>>2)<<2)+2);
+    cL[key*3]=l[0];cL[key*3+1]=l[1];cL[key*3+2]=l[2];
+    let best=0,bd=1e9;
+    for(let i=0;i<PL.length;i++){const q=PL[i],d=(l[0]-q[0])**2+(l[1]-q[1])**2+(l[2]-q[2])**2;if(d<bd){bd=d;best=i}}
+    cb[key]=best;
+  }
+  return key;
+}
+const BY=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+const ADAPT=[];
+['concrete','wool','terracotta'].forEach(f=>COL.forEach(c=>ADAPT.push(c+'_'+f)));
+['terracotta','oak_planks','spruce_planks','birch_planks','jungle_planks','acacia_planks','dark_oak_planks','mangrove_planks','cherry_planks','bamboo_planks','crimson_planks','warped_planks','stone','cobblestone','dirt','clay','netherrack','soul_sand','end_stone','glowstone','obsidian','bedrock','coal_block','iron_block','gold_block','diamond_block','emerald_block','lapis_block','redstone_block','copper_block','sponge','andesite','diorite','granite','tuff','calcite','dripstone_block','amethyst_block','moss_block','packed_ice','blue_ice','bricks','nether_bricks','red_nether_bricks','stone_bricks','mud_bricks','netherite_block','raw_iron_block','raw_copper_block','raw_gold_block','smooth_stone'].forEach(b=>ADAPT.push(b));
+function buildPalette(raws,K){
+  K=Math.min(K,ADAPT.length);
+  const h=new Uint32Array(32768);
+  for(const d of raws)for(let p=0;p<d.length;p+=8)h[(d[p]>>3)<<10|(d[p+1]>>3)<<5|(d[p+2]>>3)]++;
+  const items=[];
+  for(let k=0;k<32768;k++)if(h[k])items.push([((k>>10)&31)*8+4,((k>>5)&31)*8+4,(k&31)*8+4,h[k]]);
+  const ext=b=>{const mn=[255,255,255],mx=[0,0,0];let pop=0;for(const t of b){pop+=t[3];for(let c=0;c<3;c++){if(t[c]<mn[c])mn[c]=t[c];if(t[c]>mx[c])mx[c]=t[c]}}const rg=[mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2]];const m=Math.max(...rg);return{pop,m,ch:rg.indexOf(m)}};
+  const boxes=[items];
+  while(boxes.length<K){
+    let bi=-1,bs=0;
+    boxes.forEach((b,i)=>{if(b.length<2)return;const e=ext(b),sc=e.m*Math.sqrt(e.pop);if(sc>bs){bs=sc;bi=i}});
+    if(bi<0)break;
+    const b=boxes[bi],e=ext(b);
+    b.sort((x,y)=>x[e.ch]-y[e.ch]);
+    let acc=0,m=0;
+    while(m<b.length-1&&acc+b[m][3]<e.pop/2){acc+=b[m][3];m++}
+    m=Math.min(b.length-1,Math.max(1,m));
+    boxes.splice(bi,1,b.slice(0,m),b.slice(m));
+  }
+  return boxes.map(b=>{let r=0,g=0,bl=0,n=0;for(const t of b){r+=t[0]*t[3];g+=t[1]*t[3];bl+=t[2]*t[3];n+=t[3]}return[Math.round(r/n),Math.round(g/n),Math.round(bl/n)]});
+}
+let dp=null,rpz=null,name='video';
+$('f').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  name=f.name.replace(/\.[^.]+$/,'');
+  v.src=URL.createObjectURL(f);v.style.display='block';
+  v.onloadedmetadata=()=>{go.disabled=false;st.textContent='長さ: '+v.duration.toFixed(1)+' 秒 / '+v.videoWidth+'×'+v.videoHeight}
+};
+const seek=t=>new Promise(r=>{v.onseeked=()=>r();v.currentTime=t});
+
+const sync=()=>{const m=$('mode').value;document.querySelectorAll('.bk').forEach(e=>e.style.display=m==='block'?'':'none');document.querySelectorAll('.hq').forEach(e=>e.style.display=m==='hq'?'':'none')};
+$('mode').onchange=sync;sync();
+async function hqMode(bw,fps,secs){
+  const [dpf,fdir]=$('pf').value.split('|');
+    if(fps>20&&dpf==='15')throw new Error('20fpsを超える設定は 1.21 以降を選んでください(tick rate コマンドが必要です)');
+  if(dpf!=='61')throw new Error('高画質モードは 1.21.4 以降専用です。バージョンで「1.21.4」を選んでください');
+  const PW=+$('hqw').value,PH=Math.max(2,Math.round(PW*v.videoHeight/v.videoWidth));
+  const bh=bw*v.videoHeight/v.videoWidth,n=Math.max(1,Math.floor(Math.min(secs,v.duration)*fps)),tk=Math.max(1,Math.round((fps>20?60:20)/fps));
+  const cv=document.createElement('canvas');cv.width=PW;cv.height=PH;const cx=cv.getContext('2d');
+  const pw=128,ph=Math.max(2,Math.round(pw*PH/PW)),prev=[];
+  const z=new JSZip();
+  z.file('pack.mcmeta',JSON.stringify({pack:{pack_format:46,description:'MCVideo: '+name}},null,2));
+  v.pause();
+  for(let i=0;i<n;i++){
+    await seek(Math.min(i/fps,v.duration-0.01));
+    cx.drawImage(v,0,0,PW,PH);
+    z.file('assets/mcvideo/textures/item/f'+i+'.png',await new Promise(r=>cv.toBlob(r,'image/png')));
+    const t='mcvideo:item/f'+i;
+    z.file('assets/mcvideo/models/item/f'+i+'.json','{"textures":{"0":"'+t+'","particle":"'+t+'"},"elements":[{"from":[0,0,8],"to":[16,16,8],"faces":{"north":{"uv":[0,0,16,16],"texture":"#0"},"south":{"uv":[0,0,16,16],"texture":"#0"}}}]}');
+    z.file('assets/mcvideo/items/f'+i+'.json','{"model":{"type":"minecraft:model","model":"'+t+'"}}');
+    const pc=document.createElement('canvas');pc.width=pw;pc.height=ph;pc.getContext('2d').drawImage(cv,0,0,pw,ph);prev.push(pc);
+    pr.style.width=((i+1)/n*85)+'%';st.textContent='フレーム書き出し中 '+(i+1)+' / '+n;
+  }
+  const af=$('aud').files[0];
+  if(af){z.file('assets/mcvideo/sounds/music.ogg',af);z.file('assets/mcvideo/sounds.json','{"music":{"sounds":[{"name":"mcvideo:music","stream":true}]}}')}
+  st.textContent='リソースパックを作成中…';await new Promise(r=>setTimeout(r));
+  rpz=await z.generateAsync({type:'blob'});
+  const f=x=>x.toFixed(2)+'f',base='data/mcvideo/'+fdir+'/',E='@e[type=item_display,tag=mcvideo,limit=1]';
+  const d=new JSZip();
+  d.file('pack.mcmeta',JSON.stringify({pack:{pack_format:61,description:'MCVideo'}},null,2));
+  d.file(base+'setup.mcfunction','scoreboard objectives add mcvideo dummy\nscoreboard players set #run mcvideo 0\nkill @e[type=item_display,tag=mcvideo]\nsummon item_display ~ ~ ~5 {Tags:["mcvideo"],item:{id:"minecraft:stone",count:1,components:{"minecraft:item_model":"mcvideo:f0"}},item_display:"none",brightness:{sky:15,block:15},view_range:8.0f,width:'+f(Math.max(bw,bh))+',height:'+f(Math.max(bw,bh))+',transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],scale:['+f(bw)+','+f(bh)+',1.00f],translation:[0f,'+f(bh/2)+',0f]}}\nscoreboard players set #ready mcvideo 1\ntellraw @a {"text":"[mcvideo] 初期フレーム設置完了。/function mcvideo:start で再生開始"}\n');
+  d.file(base+'start.mcfunction','scoreboard objectives add mcvideo dummy\nexecute unless score #ready mcvideo matches 1 run return run tellraw @a {"text":"[mcvideo] 先に /function mcvideo:setup を実行してください"}\nscoreboard players set #ready mcvideo 0\nscoreboard players set #run mcvideo 1\n'+(fps>20?'tick rate 60\n':'')+(af?'execute at '+E+' run playsound mcvideo:music master @a ~ ~ ~ 16 1\n':'')+(n>1?'schedule function mcvideo:f/1 '+tk+'t\n':'scoreboard players set #run mcvideo 0\n'));
+  d.file(base+'stop.mcfunction','scoreboard players set #run mcvideo 0\nstopsound @a * mcvideo:music\n'+(fps>20?'tick rate 20\n':''));
+  d.file(base+'clear.mcfunction','scoreboard players set #run mcvideo 0\nscoreboard players set #ready mcvideo 0\nstopsound @a * mcvideo:music\nkill @e[type=item_display,tag=mcvideo]\n'+(fps>20?'tick rate 20\n':''));
+  for(let i=1;i<n;i++){
+    d.file(base+'f/'+i+'.mcfunction','execute unless score #run mcvideo matches 1 run return 0\ndata modify entity '+E+' item.components."minecraft:item_model" set value "mcvideo:f'+i+'"\n'+(i<n-1?'schedule function mcvideo:f/'+(i+1)+' '+tk+'t\n':'scoreboard players set #run mcvideo 0\n'+(fps>20?'tick rate 20\n':'')));
+  }
+  dp=await d.generateAsync({type:'blob'});
+  $('dl2').style.display='block';
+  pr.style.width='100%';
+  st.textContent='完了: '+n+'フレーム / 画面 '+bw+'×'+bh.toFixed(0)+' ブロック / リソースパック '+(rpz.size/1048576).toFixed(1)+' MB'+(n>600?' / 枚数が多いのでゲーム起動時の読み込みが重くなります':'');
+  const pv=$('pv');pv.width=pw;pv.height=ph;const pc2=pv.getContext('2d');
+  clearInterval(window._t);let k=0;
+  window._t=setInterval(()=>{pc2.drawImage(prev[k],0,0);k=(k+1)%n},1000/fps);
+  $('out').style.display='block';
+}
+go.onclick=async()=>{
+  go.disabled=true;dp=null;rpz=null;$('dl2').style.display='none';$('out').style.display='none';
+  try{
+    if($('mode').value==='hq'){await hqMode(Math.max(1,+$('hqb').value),+$('fps').value,Math.min(120,Math.max(1,+$('sec').value)));go.disabled=false;return}
+    const W=Math.min(512,Math.max(1,+$('cols').value)),fps=+$('fps').value;
+    const H=Math.max(1,Math.round(W*v.videoHeight/v.videoWidth));
+    const secs=Math.min(120,Math.max(1,+$('sec').value),v.duration);
+    const n=Math.max(1,Math.floor(secs*fps));
+    const tk=Math.max(1,Math.round((fps>20?60:20)/fps));
+    const [dpf,fdir]=$('pf').value.split('|');
+    if(fps>20&&dpf==='15')throw new Error('20fpsを超える設定は 1.21 以降を選んでください(tick rate コマンドが必要です)');
+    const cv=document.createElement('canvas');cv.width=W;cv.height=H;
+    const cx=cv.getContext('2d',{willReadFrequently:true});
+    const grids=[],raws=[];
+    v.pause();
+    for(let i=0;i<n;i++){
+      await seek(Math.min(i/fps,v.duration-0.01));
+      cx.drawImage(v,0,0,W,H);
+      raws.push(cx.getImageData(0,0,W,H).data);
+      if(i%5===0||i===n-1){pr.style.width=((i+1)/n*70)+'%';st.textContent='フレーム抽出中 '+(i+1)+' / '+n}
+    }
+    PAL.length=0;FIXED.forEach(p=>PAL.push(p));
+    const adaptive=$('pal').value==='adaptive';
+    if(adaptive){
+      st.textContent='映像の色を解析中…';await new Promise(r=>setTimeout(r));
+      buildPalette(raws,+$('kc').value).forEach((c,i)=>PAL.push([ADAPT[i],c[0],c[1],c[2]]));
+      PAL.splice(0,FIXED.length);
+    }
+    PL.length=0;PAL.forEach(p=>PL.push(lab(p[1],p[2],p[3])));cb.fill(-1);
+    for(let i=0;i<n;i++){
+      const d=raws[i],g=new Uint8Array(W*H);
+      const pg0=i?grids[i-1]:null,A=+$('dith').value,HY=+$('stab').value;
+      for(let p=0;p<W*H;p++){
+        const x=p%W,y=(p/W)|0,o=A?(BY[(y&3)*4+(x&3)]/15-0.5)*A:0;
+        const cl=u=>u<0?0:u>255?255:u|0;
+        const key=qk(cl(d[p*4]+o),cl(d[p*4+1]+o),cl(d[p*4+2]+o));
+        let best=cb[key];
+        if(pg0&&HY){
+          const pi=pg0[p];
+          if(pi!==best){
+            const k3=key*3,L=cL[k3],a1=cL[k3+1],b1=cL[k3+2],P=PL[pi],Q=PL[best];
+            const dp=Math.sqrt((L-P[0])**2+(a1-P[1])**2+(b1-P[2])**2),db=Math.sqrt((L-Q[0])**2+(a1-Q[1])**2+(b1-Q[2])**2);
+            if(dp-db<HY)best=pi;
+          }
+        }
+        g[p]=best;
+      }
+      grids.push(g);raws[i]=null;
+      if(i%10===0||i===n-1){pr.style.width=(70+(i+1)/n*10)+'%';st.textContent='色変換中 '+(i+1)+' / '+n;await new Promise(r=>setTimeout(r))}
+    }
+    const hw=Math.floor(W/2),base='data/mcvideo/'+fdir+'/';
+    const z=new JSZip();
+    z.file('pack.mcmeta',JSON.stringify({pack:{pack_format:+dpf,description:'MCVideo: '+name}},null,2));
+    const M='@e[type=marker,tag=mcvideo,limit=1]';
+    let maxCmd=0,total=0;
+    for(let i=0;i<n;i++){
+      const g=grids[i],pg=i?grids[i-1]:null,cm=[];
+      let open=new Map();const rects=[];
+      for(let r=0;r<H;r++){
+        const next=new Map();let c=0;
+        while(c<W){
+          const idx=g[r*W+c];let e=c,ch=!pg||pg[r*W+c]!==idx;
+          while(e+1<W&&g[r*W+e+1]===idx){e++;if(pg&&pg[r*W+e]!==idx)ch=true}
+          const key=c+'|'+e+'|'+idx,o=open.get(key);
+          if(o&&(e-c+1)*(r-o.r0+1)<=32768){o.ch=o.ch||ch;o.r1=r;next.set(key,o);open.delete(key)}
+          else next.set(key,{c,e,idx,r0:r,r1:r,ch});
+          c=e+1;
+        }
+        for(const o of open.values())rects.push(o);
+        open=next;
+      }
+      for(const o of open.values())rects.push(o);
+      for(const o of rects){
+        if(!o.ch)continue;
+        const x1=hw-o.e,x2=hw-o.c,ya=H-1-o.r1,yb=H-1-o.r0,b='minecraft:'+PAL[o.idx][0];
+        cm.push(x1===x2&&ya===yb?'setblock ~'+x1+' ~'+ya+' ~ '+b:'fill ~'+x1+' ~'+ya+' ~ ~'+x2+' ~'+yb+' ~ '+b);
+      }
+      maxCmd=Math.max(maxCmd,cm.length);total+=cm.length;
+      if(total>+$('cap').value)throw new Error('コマンドの総数が多すぎて、ワールド読み込みで固まります(フレーム'+i+'時点で'+total+'個)。横ブロック数・fps・秒数のどれかを減らしてください');
+      if(cm.length>60000)throw new Error('フレーム'+i+'のコマンドが多すぎます('+cm.length+')。横ブロック数を減らしてください');
+      z.file(base+'d/'+i+'.mcfunction',cm.join('\n')+'\n');
+      let f='execute unless score #run mcvideo matches 1 run return 0\nexecute at '+M+' run function mcvideo:d/'+i+'\n';
+      f+=i<n-1?'schedule function mcvideo:f/'+(i+1)+' '+tk+'t\n':'scoreboard players set #run mcvideo 0\n'+(fps>20?'tick rate 20\n':'');
+      if(i>0)z.file(base+'f/'+i+'.mcfunction',f);
+      if(i%20===0)pr.style.width=(70+i/n*20)+'%';
+    }
+    z.file(base+'setup.mcfunction','scoreboard objectives add mcvideo dummy\nscoreboard players set #run mcvideo 0\nkill @e[type=marker,tag=mcvideo]\nsummon marker ~ ~ ~5 {Tags:["mcvideo"]}\nexecute at '+M+' run forceload add ~-'+hw+' ~ ~'+(W-hw)+' ~\nscoreboard players set #ready mcvideo 0\nschedule function mcvideo:setup2 20t\n');
+    z.file(base+'setup2.mcfunction','execute at '+M+' run function mcvideo:d/0\nscoreboard players set #ready mcvideo 1\ntellraw @a {"text":"[mcvideo] 初期フレーム設置完了。/function mcvideo:start で再生開始"}\n');
+    z.file(base+'start.mcfunction','execute unless score #ready mcvideo matches 1 run return run tellraw @a {"text":"[mcvideo] 先に /function mcvideo:setup を実行して、準備完了の表示を待ってください"}\nscoreboard players set #ready mcvideo 0\nscoreboard players set #run mcvideo 1\n'+(fps>20?'tick rate 60\n':'')+(n>1?'schedule function mcvideo:f/1 '+tk+'t\n':'scoreboard players set #run mcvideo 0\n'));
+    z.file(base+'stop.mcfunction','scoreboard players set #run mcvideo 0\n'+(fps>20?'tick rate 20\n':''));
+    let cl='scoreboard players set #run mcvideo 0\nscoreboard players set #ready mcvideo 0\n'+(fps>20?'tick rate 20\n':'');
+    for(let y=0;y<H;y++)cl+='execute at '+M+' run fill ~-'+hw+' ~'+y+' ~ ~'+(W-hw)+' ~'+y+' ~ minecraft:air\n';
+    cl+='execute at '+M+' run forceload remove ~-'+hw+' ~ ~'+(W-hw)+' ~\nkill @e[type=marker,tag=mcvideo]\n';
+    z.file(base+'clear.mcfunction',cl);
+    dp=await z.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+    if(adaptive){
+      const rpf={15:15,48:34,61:46}[dpf],z2=new JSZip(),tc=document.createElement('canvas');tc.width=tc.height=16;
+      const tx=tc.getContext('2d');
+      z2.file('pack.mcmeta',JSON.stringify({pack:{pack_format:rpf,description:'MCVideo colors: '+name}},null,2));
+      for(const p of PAL){tx.fillStyle='rgb('+p[1]+','+p[2]+','+p[3]+')';tx.fillRect(0,0,16,16);
+        z2.file('assets/minecraft/textures/block/'+p[0]+'.png',await new Promise(r=>tc.toBlob(r,'image/png')))}
+      rpz=await z2.generateAsync({type:'blob'});
+      $('dl2').style.display='block';
+    }
+    pr.style.width='100%';
+    st.textContent='完了: '+n+'フレーム / 画面 '+W+'×'+H+' ブロック / コマンド総数 '+total+' / 1フレーム最大 '+maxCmd+' / '+(dp.size/1048576).toFixed(2)+' MB'+(H>250?' / 縦が高いので低い位置に立ってください':'');
+    const pv=$('pv');pv.width=W;pv.height=H;
+    const pc=pv.getContext('2d'),im=pc.createImageData(W,H);
+    clearInterval(window._t);let k=0;
+    window._t=setInterval(()=>{
+      const g=grids[k];
+      for(let p=0;p<W*H;p++){const c=PAL[g[p]];im.data[p*4]=c[1];im.data[p*4+1]=c[2];im.data[p*4+2]=c[3];im.data[p*4+3]=255}
+      pc.putImageData(im,0,0);k=(k+1)%n;
+    },1000/fps);
+    $('out').style.display='block';
+  }catch(err){st.textContent='エラー: '+err.message}
+  go.disabled=false;
+};
+$('dl2').onclick=()=>{if(!rpz)return;const a=document.createElement('a');a.href=URL.createObjectURL(rpz);a.download='MCVideo_'+name+'_resourcepack.zip';a.click()};
+$('dl').onclick=()=>{
+  if(!dp)return;
+  const a=document.createElement('a');a.href=URL.createObjectURL(dp);a.download='MCVideo_'+name+'_datapack.zip';a.click();
+};
+</script>
+</body>
+</html>
